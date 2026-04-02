@@ -82,16 +82,18 @@ def cmd_analyze(args):
         config=cfg,
         output_dir=os.path.join(BASE_DIR, "reports"),
         template_dir=os.path.join(BASE_DIR, "templates"),
+        collect_training=args.collect_training,
     )
 
     frame_skip = cfg.get("frame_skip", 5)
     source = get_source(args.source, args.uri, frame_skip=frame_skip, **source_kwargs)
 
     print(f"\n[OT-id] Starting analysis")
-    print(f"  Source type : {args.source}")
-    print(f"  URI         : {args.uri}")
-    print(f"  CoT target  : {cfg.get('cot_host')}:{cfg.get('cot_port')}")
-    print(f"  Model       : {cfg.get('yolo_model', 'yolov8x.pt')}")
+    print(f"  Source type      : {args.source}")
+    print(f"  URI              : {args.uri}")
+    print(f"  CoT target       : {cfg.get('cot_host')}:{cfg.get('cot_port')}")
+    print(f"  Model            : {cfg.get('yolo_model', 'yolov8x.pt')}")
+    print(f"  Collect training : {args.collect_training}")
     print()
 
     max_frames = args.max_frames or cfg.get("max_frames", 0)
@@ -109,11 +111,14 @@ def cmd_analyze(args):
         print("\n[OT-id] Interrupted by user.")
 
     print(f"\n[OT-id] Processed {frame_count} frames.")
-    result = pipeline.finalize()
-    if result:
+    result = pipeline.finalize(upload_to_roboflow=args.upload_roboflow)
+    if result.get("device_count"):
         print(f"[OT-id] Identified {result['device_count']} unique devices.")
         print(f"  JSON report : {result['json']}")
         print(f"  HTML report : {result['html']}")
+    if result.get("training"):
+        t = result["training"]
+        print(f"[OT-id] Training samples saved: {t['saved']}  →  {t['dataset_dir']}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -144,6 +149,10 @@ def build_parser() -> argparse.ArgumentParser:
                          help="Override CoT delivery port")
     analyze.add_argument("--max-frames", type=int, default=0,
                          help="Stop after N frames (0 = unlimited)")
+    analyze.add_argument("--collect-training", action="store_true",
+                         help="Save classified detections as YOLO training data in data/training/")
+    analyze.add_argument("--upload-roboflow", action="store_true",
+                         help="Upload training data to Roboflow project after session (requires ROBOFLOW_API_KEY)")
     analyze.set_defaults(func=cmd_analyze)
 
     return parser

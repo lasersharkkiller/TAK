@@ -20,6 +20,12 @@ reports/
 # Data (may contain sensitive intel)
 data/default_creds.csv
 
+# Training data (large — manage via Roboflow or Git LFS separately)
+data/training/images/
+data/training/labels/
+data/training/crops/
+data/firmware/
+
 # IDE
 .vscode/
 .idea/

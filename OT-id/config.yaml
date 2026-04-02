@@ -28,3 +28,11 @@ cot_stale_minutes: 60
 
 # ── Reports ──────────────────────────────────────────────────────────────────
 reports_dir: "reports"
+
+# ── Training Data Collection ─────────────────────────────────────────────────
+collect_training_data: false          # set true or use --collect-training flag
+training_min_confidence: 0.55         # only save Claude classifications above this
+training_save_crops: true             # also save per-device crop images for review
+roboflow_api_key: ""                  # or set ROBOFLOW_API_KEY in .env
+roboflow_workspace: ""                # your Roboflow workspace slug
+roboflow_project: "ot-id-drone"       # your Roboflow project name

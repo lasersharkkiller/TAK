@@ -23,6 +23,7 @@ from .recon.creds import get_default_creds
 from .recon.exploits import searchsploit_cve, get_ics_techniques
 from .output.cot import build_cot_event, send_cot_udp
 from .output.report import DeviceRecord, build_record, save_json_report, save_html_report
+from .training.collector import TrainingCollector
 
 
 class OTidPipeline:
@@ -36,9 +37,11 @@ class OTidPipeline:
         config:         dict from config.yaml (or any namespace)
         output_dir:     Where to write reports
         template_dir:   Where Jinja2 templates live
+        collect_training: If True, save every classified detection as training data
     """
 
-    def __init__(self, detector, ocr, classifier, config: dict, output_dir: str, template_dir: str):
+    def __init__(self, detector, ocr, classifier, config: dict, output_dir: str, template_dir: str,
+                 collect_training: bool = False):
         self.detector = detector
         self.ocr = ocr
         self.classifier = classifier
@@ -57,6 +60,20 @@ class OTidPipeline:
         self._cot_enabled = config.get("cot_enabled", True)
         self._cot_host = config.get("cot_host", "239.2.3.1")
         self._cot_port = int(config.get("cot_port", 6969))
+
+        # Training data collection
+        self._collector: Optional[TrainingCollector] = None
+        if collect_training or config.get("collect_training_data", False):
+            training_dir = os.path.join(os.path.dirname(output_dir), "data", "training")
+            self._collector = TrainingCollector(
+                base_dir=training_dir,
+                min_confidence=config.get("training_min_confidence", 0.55),
+                save_crops=config.get("training_save_crops", True),
+                roboflow_api_key=config.get("roboflow_api_key") or os.environ.get("ROBOFLOW_API_KEY"),
+                roboflow_project=config.get("roboflow_project"),
+                roboflow_workspace=config.get("roboflow_workspace"),
+            )
+            print(f"[Pipeline] Training collection ON → {training_dir}")
 
     def process_frame(self, frame: Frame) -> List[DeviceRecord]:
         """
@@ -87,6 +104,12 @@ class OTidPipeline:
             ocr_text=ocr_text,
             yolo_label=det.label,
         )
+
+        # ── Training data collection (before dedup — save every good detection) ─
+        if self._collector is not None:
+            saved = self._collector.collect(frame, det, device_id)
+            if saved:
+                print(f"[Pipeline]   → Training sample saved ({device_id.category}, conf={device_id.confidence:.2f})")
 
         # ── De-duplication ─────────────────────────────────────────────────────
         fingerprint = f"{device_id.manufacturer}::{device_id.model}"
@@ -159,12 +182,25 @@ class OTidPipeline:
 
         return record
 
-    def finalize(self) -> dict:
-        """Write reports and return paths."""
+    def finalize(self, upload_to_roboflow: bool = False) -> dict:
+        """Write reports, flush training data, return paths."""
+        result: dict = {}
+
         if not self.records:
             print("[Pipeline] No devices identified — no report generated.")
-            return {}
+        else:
+            json_path = save_json_report(self.records, self.output_dir)
+            html_path = save_html_report(self.records, self.output_dir, self.template_dir)
+            result.update({"json": json_path, "html": html_path, "device_count": len(self.records)})
 
-        json_path = save_json_report(self.records, self.output_dir)
-        html_path = save_html_report(self.records, self.output_dir, self.template_dir)
-        return {"json": json_path, "html": html_path, "device_count": len(self.records)}
+        if self._collector is not None:
+            self._collector.flush()
+            stats = self._collector.stats
+            print(f"[Pipeline] Training samples: {stats['saved']} saved, "
+                  f"{stats['skipped_low_confidence']} skipped (low confidence)")
+            print(f"[Pipeline] Dataset dir: {stats['dataset_dir']}")
+            result["training"] = stats
+            if upload_to_roboflow:
+                self._collector.upload_to_roboflow()
+
+        return result
