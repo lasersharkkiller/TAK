@@ -1,0 +1,29 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Models (large binary files — download separately)
+models/*.pt
+models/*.onnx
+models/*.tflite
+
+# Reports (generated output)
+reports/
+
+# Data (may contain sensitive intel)
+data/default_creds.csv
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

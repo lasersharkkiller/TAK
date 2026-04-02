@@ -1,0 +1,28 @@
+# Core
+opencv-python>=4.9.0
+numpy>=1.24.0
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Detection
+ultralytics>=8.2.0          # YOLOv8
+
+# OCR
+easyocr>=1.7.1
+
+# Classification
+anthropic>=0.30.0
+
+# Recon
+httpx>=0.27.0               # NVD API
+shodan>=1.31.0              # Shodan API
+
+# Online streams
+yt-dlp>=2024.5.1
+
+# Reporting
+jinja2>=3.1.4
+
+# Phase 2 — Firmware (stubs only in Phase 1)
+requests>=2.31.0
+beautifulsoup4>=4.12.0

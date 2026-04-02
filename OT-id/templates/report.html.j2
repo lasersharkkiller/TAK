@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OT-id Recon Report</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; margin: 0; padding: 20px; }
+  h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 8px; }
+  h2 { color: #79c0ff; margin-top: 30px; }
+  h3 { color: #d2a8ff; }
+  .meta { color: #8b949e; font-size: 0.9em; margin-bottom: 20px; }
+  .device-card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    margin: 20px 0; padding: 20px;
+  }
+  .device-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .device-name { font-size: 1.3em; font-weight: bold; color: #e6edf3; }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 4px;
+    font-size: 0.8em; font-weight: bold; color: #fff;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .section { background: #0d1117; border-radius: 6px; padding: 12px; }
+  .section h4 { margin: 0 0 8px; color: #8b949e; font-size: 0.85em; text-transform: uppercase; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+  th { background: #21262d; color: #8b949e; padding: 6px 10px; text-align: left; }
+  td { padding: 5px 10px; border-bottom: 1px solid #21262d; }
+  tr:hover td { background: #1c2128; }
+  .mono { font-family: 'Courier New', monospace; font-size: 0.9em; }
+  .coord { color: #8b949e; font-size: 0.85em; }
+  .no-data { color: #484f58; font-style: italic; }
+  .summary-bar {
+    display: flex; gap: 20px; background: #161b22;
+    border-radius: 8px; padding: 16px; margin-bottom: 24px;
+  }
+  .stat { text-align: center; }
+  .stat .num { font-size: 2em; font-weight: bold; color: #58a6ff; }
+  .stat .lbl { font-size: 0.8em; color: #8b949e; }
+  .tag { display: inline-block; background: #21262d; border-radius: 4px;
+         padding: 2px 8px; font-size: 0.8em; margin: 2px; }
+</style>
+</head>
+<body>
+
+<h1>OT-id Penetration Testing Recon Report</h1>
+<div class="meta">Generated: {{ generated }} &nbsp;|&nbsp; Devices identified: {{ records|length }}</div>
+
+<div class="summary-bar">
+  <div class="stat"><div class="num">{{ records|length }}</div><div class="lbl">Devices</div></div>
+  <div class="stat">
+    <div class="num" style="color:#dc3545;">
+      {{ records | selectattr('highest_severity', 'in', ['CRITICAL','HIGH']) | list | length }}
+    </div>
+    <div class="lbl">Critical/High Risk</div>
+  </div>
+  <div class="stat">
+    <div class="num">{{ records | sum(attribute='cve_count') }}</div>
+    <div class="lbl">Total CVEs</div>
+  </div>
+  <div class="stat">
+    <div class="num">{{ records | sum(attribute='cred_count') }}</div>
+    <div class="lbl">Default Cred Sets</div>
+  </div>
+</div>
+
+{% for r in records %}
+<div class="device-card">
+  <div class="device-header">
+    <div class="device-name">{{ r.manufacturer }} {{ r.model }}</div>
+    <span class="badge" style="background: {{ severity_colors[r.highest_severity] }};">
+      {{ r.highest_severity }} RISK
+    </span>
+  </div>
+
+  <div class="grid3">
+    <div class="section">
+      <h4>Device Info</h4>
+      <table>
+        <tr><td>Category</td><td>{{ r.category }}</td></tr>
+        <tr><td>Confidence</td><td>{{ "%.0f"|format(r.confidence * 100) }}%</td></tr>
+        <tr><td>ID Method</td><td>{{ r.id_source }}</td></tr>
+        <tr><td>Frame</td><td>#{{ r.frame_index }}</td></tr>
+        {% if r.lat %}<tr><td>Position</td><td class="coord">{{ "%.6f"|format(r.lat) }}, {{ "%.6f"|format(r.lon) }} / {{ "%.1f"|format(r.alt_m or 0) }}m</td></tr>{% endif %}
+      </table>
+    </div>
+
+    <div class="section">
+      <h4>CVEs ({{ r.cve_count }})</h4>
+      {% if r.cves %}
+      <table>
+        <tr><th>CVE ID</th><th>Score</th><th>Severity</th></tr>
+        {% for c in r.cves[:8] %}
+        <tr>
+          <td class="mono"><a href="https://nvd.nist.gov/vuln/detail/{{ c.id }}" target="_blank" style="color:#58a6ff;">{{ c.id }}</a></td>
+          <td>{{ c.score or '-' }}</td>
+          <td><span class="badge" style="background:{{ severity_colors[c.severity] }};font-size:0.75em;">{{ c.severity }}</span></td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}<p class="no-data">No CVEs found</p>{% endif %}
+    </div>
+
+    <div class="section">
+      <h4>Default Credentials ({{ r.cred_count }})</h4>
+      {% if r.credentials %}
+      <table>
+        <tr><th>Service</th><th>Username</th><th>Password</th></tr>
+        {% for cr in r.credentials[:10] %}
+        <tr>
+          <td>{{ cr.service }}</td>
+          <td class="mono">{{ cr.username }}</td>
+          <td class="mono">{{ cr.password }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}<p class="no-data">No default credentials found</p>{% endif %}
+    </div>
+  </div>
+
+  {% if r.ics_techniques %}
+  <div class="section" style="margin-top:12px;">
+    <h4>MITRE ATT&amp;CK for ICS</h4>
+    {% for t in r.ics_techniques %}
+    <span class="tag"><a href="https://attack.mitre.org/techniques/{{ t[0] }}/" target="_blank" style="color:#d2a8ff;">{{ t[0] }}</a> — {{ t[1] }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if r.shodan %}
+  <div class="section" style="margin-top:12px;">
+    <h4>Shodan Exposure ({{ r.shodan.total_exposed }} internet instances)</h4>
+    <span class="tag">Ports: {{ r.shodan.ports | join(', ') or 'none' }}</span>
+    {% for v in r.shodan.vulns[:5] %}
+    <span class="tag" style="color:#dc3545;">{{ v }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endfor %}
+
+</body>
+</html>

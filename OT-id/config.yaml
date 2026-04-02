@@ -1,0 +1,30 @@
+# OT-id Configuration
+# API keys should be set in .env, not here.
+# Values here are defaults; .env / CLI args override them.
+
+# ── Detection ────────────────────────────────────────────────────────────────
+yolo_model: "yolov8x.pt"          # or path to fine-tuned .pt
+detection_confidence: 0.35        # min YOLO confidence score
+inference_device: "cpu"           # "cpu", "cuda", or "mps"
+frame_skip: 5                     # process every Nth frame
+max_frames: 0                     # 0 = unlimited
+
+# ── OCR ──────────────────────────────────────────────────────────────────────
+ocr_gpu: false
+
+# ── Classification ───────────────────────────────────────────────────────────
+claude_model: "claude-haiku-4-5-20251001"
+
+# ── API Keys (prefer .env over hardcoding here) ──────────────────────────────
+shodan_api_key: ""
+nvd_api_key: ""
+anthropic_api_key: ""
+
+# ── CoT / ATAK Output ────────────────────────────────────────────────────────
+cot_enabled: true
+cot_host: "239.2.3.1"             # TAK multicast; set to TAK server IP for unicast
+cot_port: 6969
+cot_stale_minutes: 60
+
+# ── Reports ──────────────────────────────────────────────────────────────────
+reports_dir: "reports"
